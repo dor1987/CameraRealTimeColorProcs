@@ -56,16 +56,16 @@ public class MainActivity extends AppCompatActivity {
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
 
         @Override
-        public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
-            setupCamera(i,i1);
+        public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int width, int height) {
+            setupCamera(width,height);
             //fix camera rotation bug
-            transformImage(i,i1);
+            transformImage(width,height);
             connectCamera();
         }
 
         @Override
         public void onSurfaceTextureSizeChanged(SurfaceTexture surfaceTexture, int i, int i1) {
-
+            //Size cannot be changed
 
         }
 
