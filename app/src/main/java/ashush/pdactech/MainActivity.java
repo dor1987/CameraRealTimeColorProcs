@@ -6,32 +6,27 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.graphics.Camera;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
-import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.SurfaceTexture;
-import android.graphics.YuvImage;
-import android.graphics.drawable.BitmapDrawable;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CameraDevice;
 import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.CaptureRequest;
-import android.hardware.camera2.TotalCaptureResult;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.support.annotation.NonNull;
-import android.support.constraint.solver.widgets.Rectangle;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.graphics.Palette;
 import android.util.Size;
 import android.util.SparseIntArray;
@@ -39,12 +34,8 @@ import android.view.Surface;
 import android.view.TextureView;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import java.io.ByteArrayOutputStream;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -56,27 +47,20 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_CAMERA_PERM_RES = 0;
 
 
-    //Palettes
-    private Palette.Swatch vibrantSwatch;
-    private Palette.Swatch lightVibrantSwatch;
-    private Palette.Swatch darkVibrantSwatch;
-    private Palette.Swatch mutedSwatch;
-    private Palette.Swatch lightMutedSwatch;
-    private Palette.Swatch darkMutedSwatch;
 
-    //views
-    TextView test1;
+    //Views arrays
+    List<TextView> percemtTextViewArray,colorCodeTextViewArray;
 
-    private TextureView textureView;
+
+    private TextureView mTextureView;
     private TextureView.SurfaceTextureListener mSurfaceTextureListener = new TextureView.SurfaceTextureListener() {
 
         @Override
         public void onSurfaceTextureAvailable(SurfaceTexture surfaceTexture, int i, int i1) {
             setupCamera(i,i1);
-            //fix rotation bug
+            //fix camera rotation bug
             transformImage(i,i1);
             connectCamera();
-
         }
 
         @Override
@@ -98,13 +82,12 @@ public class MainActivity extends AppCompatActivity {
 
 
     private CameraDevice mCameraDevice;
-    //will return CameraDevica when its available
 
+    //Will return CameraDevice when its available
     private CameraDevice.StateCallback mCamStateCallback = new CameraDevice.StateCallback() {
         @Override
         public void onOpened(@NonNull CameraDevice cameraDevice) {
-        mCameraDevice = cameraDevice;
-            //Toast.makeText(MainActivity.this, "Camera connection successful", Toast.LENGTH_SHORT).show();
+            mCameraDevice = cameraDevice;
             startPreview();
         }
 
@@ -121,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    //creating background thread
+    //Creating background thread
     private HandlerThread mBackGroundHandlerThread;
     private Handler mBackGroundHandler;
 
@@ -132,39 +115,20 @@ public class MainActivity extends AppCompatActivity {
 
     private ImageReader mImageReader;
 
+    //Get frame from preview when it's available
     private final ImageReader.OnImageAvailableListener mOnImageAvailableListener = new ImageReader.OnImageAvailableListener() {
         @Override
         public void onImageAvailable(ImageReader reader) {
-            //Log.d(TAG, "The onImageAvailable thread id: " + Thread.currentThread().getId());
-            Image readImage = reader.acquireLatestImage();
-
-
-           // process(bitmap);
-            readImage.close();
-
-
-/*
-            ByteBuffer buffer = readImage.getPlanes()[0].getBuffer();
-            byte[] bytes = new byte[buffer.remaining()];
-            buffer.get(bytes);
-            Bitmap myBitmap = BitmapFactory.decodeByteArray(bytes,0,bytes.length,null);
-*/
-
-
-
-
+            Image image = reader.acquireLatestImage();
+            if (image != null) {
+                //Converting to JPEG
+                byte[] jpegData = ImageUtils.imageToByteArray(image);
+                Bitmap bitmap = BitmapFactory.decodeByteArray(jpegData, 0, jpegData.length);
+                process(bitmap);
+                image.close();
+            }
         }
     };
-/*
-    private CameraCaptureSession.CaptureCallback mCaptureCallback = new CameraCaptureSession.CaptureCallback(){
-        @Override
-        public void onCaptureCompleted(@NonNull CameraCaptureSession session, @NonNull CaptureRequest request, @NonNull TotalCaptureResult result) {
-            super.onCaptureCompleted(session, request, result);
-            process(result);
-
-        }
-    };
-*/
 
 
     //Orientations
@@ -176,9 +140,7 @@ public class MainActivity extends AppCompatActivity {
         ORIENTATIONS.append(Surface.ROTATION_270,270);
     }
 
-
     private static class CompareSizeByArea implements Comparator<Size>{
-
         @Override
         public int compare(Size lhs, Size rhs) {
             return Long.signum((long) lhs.getWidth() * lhs.getHeight()/
@@ -190,14 +152,32 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        initTextViews();
 
-        test1 = (TextView) findViewById(R.id.textViewColorNum1Percent);
-
-        textureView = (TextureView) findViewById(R.id.cameraTextureView);
-        //make landscape orientation
+        //Defining landscape orientation.
         setRequestedOrientation(SCREEN_ORIENTATION_LANDSCAPE);
+    }
+
+    private void initTextViews() {
+        //Init all the views
+        percemtTextViewArray = new ArrayList<TextView>();
+        colorCodeTextViewArray = new ArrayList<TextView>();
+
+        percemtTextViewArray.add((TextView) findViewById(R.id.textViewColorNum1Percent));
+        percemtTextViewArray.add((TextView) findViewById(R.id.textViewColorNum2Percent));
+        percemtTextViewArray.add((TextView) findViewById(R.id.textViewColorNum3Percent));
+        percemtTextViewArray.add((TextView) findViewById(R.id.textViewColorNum4Percent));
+        percemtTextViewArray.add((TextView) findViewById(R.id.textViewColorNum5Percent));
 
 
+        colorCodeTextViewArray.add((TextView) findViewById(R.id.textViewColorNum1Code));
+        colorCodeTextViewArray.add((TextView) findViewById(R.id.textViewColorNum2Code));
+        colorCodeTextViewArray.add((TextView) findViewById(R.id.textViewColorNum3Code));
+        colorCodeTextViewArray.add((TextView) findViewById(R.id.textViewColorNum4Code));
+        colorCodeTextViewArray.add((TextView) findViewById(R.id.textViewColorNum5Code));
+
+
+        mTextureView = (TextureView) findViewById(R.id.cameraTextureView);
     }
 
     @Override
@@ -216,26 +196,24 @@ public class MainActivity extends AppCompatActivity {
 
         startBackGroundThread();
 
-        //check if textureView is available
-        if(textureView.isAvailable()){
-            setupCamera(textureView.getWidth(),textureView.getHeight());
-            //fix rotation bug
-            transformImage(textureView.getWidth(),textureView.getHeight());
+        //Check if textureView is available
+        if(mTextureView.isAvailable()){
+            setupCamera(mTextureView.getWidth(),mTextureView.getHeight());
+            //Fix rotation bug
+            transformImage(mTextureView.getWidth(),mTextureView.getHeight());
             connectCamera();
         }
 
         else{
-            textureView.setSurfaceTextureListener(mSurfaceTextureListener);
+            mTextureView.setSurfaceTextureListener(mSurfaceTextureListener);
         }
     }
 
     @Override
     protected void onPause() {
         closeCamera();
-        startBackGroundThread();
-
+        stopBackGroundThread();
         super.onPause();
-
     }
 
     private void closeCamera(){
@@ -276,7 +254,6 @@ public class MainActivity extends AppCompatActivity {
                     mImageReader = ImageReader.newInstance(mPreviewSize.getWidth(), mPreviewSize.getHeight(),
                             ImageFormat.YUV_420_888, 3);
                     mImageReader.setOnImageAvailableListener(mOnImageAvailableListener,mBackGroundHandler);
-
                     return;
                 }
             }
@@ -289,7 +266,7 @@ public class MainActivity extends AppCompatActivity {
     private void connectCamera(){
         CameraManager cameraManager = (CameraManager) getSystemService(CAMERA_SERVICE);
         try {
-            //check permission for Marshmelow and up
+            //check permission for Marshmallow and up
             if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M){
                 if(ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
                         PackageManager.PERMISSION_GRANTED){
@@ -314,8 +291,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void startPreview(){
-    //start the preview display on the screen
-        SurfaceTexture surfaceTexture = textureView.getSurfaceTexture();
+        //Start the preview display on the screen
+        SurfaceTexture surfaceTexture = mTextureView.getSurfaceTexture();
         surfaceTexture.setDefaultBufferSize(mPreviewSize.getWidth(),mPreviewSize.getHeight());
         Surface previewSurface = new Surface(surfaceTexture);
 
@@ -328,10 +305,9 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onConfigured(@NonNull CameraCaptureSession cameraCaptureSession) {
 
-                        try {
+                    try {
                         cameraCaptureSession.setRepeatingRequest(mCaptureRequestBuilder.build(),
                                 null,mBackGroundHandler);
-                        //todo instead of null maybe i can porcses the data
                     } catch (CameraAccessException e) {
                         e.printStackTrace();
                     }
@@ -368,7 +344,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static int sensorToDeviceRotation(CameraCharacteristics cameraCharacteristics, int deviceOrentation){
-       //calc the needed orientations
+        //calc the needed orientations
         int sensorOrientation = cameraCharacteristics.get(CameraCharacteristics.SENSOR_ORIENTATION);
         deviceOrentation = ORIENTATIONS.get(deviceOrentation);
 
@@ -376,7 +352,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private static Size chooseOptimalSize(Size[] choices, int width,int height){
-      //Get the optimal res and size
+        //Get the optimal res and size
         List<Size> bigEnoughRes = new ArrayList<Size>();
         for(Size s : choices){
             if(s.getHeight() == s.getWidth() * height / width  &&
@@ -394,8 +370,9 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void transformImage(int width, int height){
-        //fix rotation bug
-        if(mPreviewSize == null || textureView == null){
+        //Fix rotation bug
+        //Friend helped me out on this one
+        if(mPreviewSize == null || mTextureView == null){
             return;
         }
 
@@ -417,53 +394,83 @@ public class MainActivity extends AppCompatActivity {
             matrix.postRotate(90 * (rotation - 2), centerX,centerY);
         }
 
-        textureView.setTransform(matrix);
+        mTextureView.setTransform(matrix);
 
     }
 
     private void process(Bitmap frame) {
-        //implement histogram pros
-
+        //Source: https://developer.android.com/reference/android/support/v7/graphics/Palette
+        //Google Palette Lib - used to get the dominant colors of an image and there population
         createPaletteAsync(frame);
-        //createPaletteSync(frame);
-        updateTextViews();
     }
 
-    private void updateTextViews(){
+    private void updateTextViews(final List<Palette.Swatch> swatchArrayList, final int totalAmountOfPixels){
         //update the UI
         runOnUiThread(new Runnable() {
 
             @Override
             public void run() {
-                //update the UI here
-                test1.setBackgroundColor(vibrantSwatch.getRgb());
-
+                //update all the textviews
+                for(int i = 0; i< swatchArrayList.size() && i < 5;i++){
+                    double tempPercentCover = ((double)swatchArrayList.get(i).getPopulation()/totalAmountOfPixels)*100;
+                    int colorOfCurrentSwatch = swatchArrayList.get(i).getRgb();
+                    percemtTextViewArray.get(i).setBackgroundColor(colorOfCurrentSwatch);
+                    percemtTextViewArray.get(i).setText("" +String.format("%.2f", tempPercentCover)+"%");
+                    colorCodeTextViewArray.get(i).setText(getRedGreenBlueAsString(colorOfCurrentSwatch));
+                }
             }
         });
     }
 
+    private String getRedGreenBlueAsString(int colorAsInt){
+        //Source: https://developer.android.com/reference/android/graphics/Color
+        //Help getting the string format needed
+        int red = Color.red(colorAsInt);
+        int green = Color.green(colorAsInt);
+        int blue = Color.blue(colorAsInt);
 
-    public void createPaletteAsync(Bitmap bitmap) {
-        Palette.from(bitmap).maximumColorCount(32).generate(new Palette.PaletteAsyncListener() {
+        return "R:"+red+" G:"+green+" B:"+blue;
+    }
+
+    private List<Palette.Swatch> orderSwatchByPopulation(List<Palette.Swatch> swatchArrayList) {
+        Collections.sort(swatchArrayList, new SwatchComperator());
+        return swatchArrayList;
+    }
+
+    public class SwatchComperator implements Comparator<Palette.Swatch>
+    {
+        @Override
+        public int compare(Palette.Swatch swatch1, Palette.Swatch swatch2) {
+                if(swatch1 == null && swatch2 != null)
+                    return 1;
+                else if(swatch1 != null && swatch2 == null)
+                    return -1;
+                else if(swatch1 == null && swatch2 == null)
+                    return 0;
+                else
+                    return (swatch2.getPopulation()-swatch1.getPopulation());
+        }
+    }
+
+    public void createPaletteAsync(final Bitmap bitmap) {
+        Palette.from(bitmap).maximumColorCount(10).generate(new Palette.PaletteAsyncListener() {
             public void onGenerated(Palette p) {
-                vibrantSwatch = p.getVibrantSwatch();
-                lightVibrantSwatch = p.getLightVibrantSwatch();
-                darkVibrantSwatch = p.getDarkVibrantSwatch();
-                mutedSwatch = p.getMutedSwatch();
-                lightMutedSwatch = p.getLightMutedSwatch();
-                darkMutedSwatch = p.getDarkMutedSwatch();
+
+                List<Palette.Swatch> swatchArrayList = new ArrayList<Palette.Swatch>();
+                swatchArrayList.addAll(p.getSwatches());
+
+                List<Palette.Swatch> sortedSwatchArrayList = new ArrayList<Palette.Swatch>();
+                for(int i = 0; i<swatchArrayList.size() ; i++){
+                    sortedSwatchArrayList.add(swatchArrayList.get(i));
+                }
+
+                updateTextViews(orderSwatchByPopulation(sortedSwatchArrayList),calcTotalAmountOfPixels(bitmap));
             }
         });
     }
 
-    public void createPaletteSync(Bitmap bitmap) {
-        Palette p = Palette.from(bitmap).maximumColorCount(32).generate();
-
-        vibrantSwatch = p.getVibrantSwatch();
-        lightVibrantSwatch = p.getLightVibrantSwatch();
-        darkVibrantSwatch = p.getDarkVibrantSwatch();
-        mutedSwatch = p.getMutedSwatch();
-        lightMutedSwatch = p.getLightMutedSwatch();
-        darkMutedSwatch = p.getDarkMutedSwatch();
+    private int calcTotalAmountOfPixels(Bitmap frame){
+        return (frame.getWidth()*frame.getHeight());
     }
 }
+
